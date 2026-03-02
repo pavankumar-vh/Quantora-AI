@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import Sidebar from '@/components/Sidebar';
 import KpiCard from '@/components/dashboard/KpiCard';
 import TrendChart from '@/components/dashboard/TrendChart';
 import RiskDistribution from '@/components/dashboard/RiskDistribution';
@@ -46,14 +45,8 @@ export default function DashboardPage() {
     }, []);
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
-            {/* Sidebar */}
-            <Sidebar />
-
-            {/* Main content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-
-                {/* ── Row 1: System Status Bar ── */}
+        <>
+            {/* ── Row 1: System Status Bar ── */}
                 <header className="h-14 flex-shrink-0 border-b border-[var(--border)] px-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div>
@@ -145,7 +138,6 @@ export default function DashboardPage() {
                     </section>
 
                 </main>
-            </div>
-        </div>
+        </>
     );
 }

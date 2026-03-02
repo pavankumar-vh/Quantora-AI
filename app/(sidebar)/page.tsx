@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import Navbar from '@/components/Navbar';
+import { Sun, Moon } from 'lucide-react';
 import TransactionFeed from '@/components/TransactionFeed';
 import GraphView from '@/components/GraphView';
 import RiskPanel from '@/components/RiskPanel';
@@ -122,9 +122,32 @@ export default function DashboardPage() {
     );
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg)]">
-            {/* Top nav */}
-            <Navbar theme={theme} onToggleTheme={toggleTheme} />
+        <>
+            {/* Header */}
+            <header className="h-14 flex-shrink-0 border-b border-[var(--border)] px-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-[var(--text-primary)] tracking-tight">Risk Intelligence</span>
+                    <span className="text-[10px] font-mono text-[var(--text-muted)]">· Network Graph</span>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                        </span>
+                        <span className="text-[10px] font-mono text-emerald-400">System Active</span>
+                    </div>
+                    <div className="w-px h-4 bg-[var(--border)]" />
+                    <button
+                        onClick={toggleTheme}
+                        aria-label="Toggle theme"
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-all duration-150"
+                    >
+                        {theme === 'dark' ? <Sun size={12} strokeWidth={1.5} /> : <Moon size={12} strokeWidth={1.5} />}
+                        <span className="text-[10px] font-mono">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+                    </button>
+                </div>
+            </header>
 
             {/* 3-column dashboard */}
             <main className="flex flex-1 overflow-hidden">
@@ -155,6 +178,6 @@ export default function DashboardPage() {
                 activeAlerts={activeAlerts}
                 suspiciousClusters={1}
             />
-        </div>
+        </>
     );
 }

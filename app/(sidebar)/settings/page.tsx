@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
 import BackButton from '@/components/ui/BackButton';
 import { Settings, ToggleLeft, ToggleRight } from 'lucide-react';
 
@@ -121,9 +120,7 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
-            <Sidebar />
-            <div className="flex-1 flex flex-col overflow-hidden">
+        <>
 
                 {/* Header */}
                 <header className="h-14 flex-shrink-0 border-b border-[var(--border)] px-6 flex items-center justify-between">
@@ -220,7 +217,6 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </main>
-            </div>
-        </div>
+        </>
     );
 }
