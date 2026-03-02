@@ -1,53 +1,31 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import Navbar from '@/components/Navbar';
+import Sidebar from '@/components/Sidebar';
 import TransactionFeed from '@/components/TransactionFeed';
 import GraphView from '@/components/GraphView';
 import RiskPanel from '@/components/RiskPanel';
 import MetricsFooter from '@/components/MetricsFooter';
+import PipelineStatusBar from '@/components/PipelineStatusBar';
 
 import type { Transaction, GraphNode, GraphEdge } from '@/lib/mockData';
 import { FRAUD_CLUSTER_IDS } from '@/lib/mockData';
 import { calculateRisk, getDefaultRiskScore, type RiskScore } from '@/lib/riskEngine';
 import {
-    submitTransaction,
     fetchTransactions,
     fetchGraphData,
     mapApiTransaction,
     type StoredTransaction,
 } from '@/lib/api';
 
-// ── Helpers for simulation ──
-const ALL_ACCOUNTS = [
-    'A001', 'A002', 'A003', 'A004', 'A005',
-    'B001', 'B002', 'B003', 'B004', 'B005', 'B006', 'B007', 'B008',
-    'C001', 'C002', 'C003',
-];
-const FRAUD_ACCOUNTS = ['A001', 'A002', 'A003', 'A004', 'A005'];
-
-function randomAccount(): string {
-    return ALL_ACCOUNTS[Math.floor(Math.random() * ALL_ACCOUNTS.length)];
-}
-
 const MAX_TRANSACTIONS = 50;
 
 export default function DashboardPage() {
-    const [theme, setTheme] = useState<'dark' | 'light'>('dark');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [nodes, setNodes] = useState<GraphNode[]>([]);
     const [edges, setEdges] = useState<GraphEdge[]>([]);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [riskScore, setRiskScore] = useState<RiskScore>(getDefaultRiskScore());
-
-    // Theme toggle
-    const toggleTheme = useCallback(() => {
-        setTheme(t => {
-            const next = t === 'dark' ? 'light' : 'dark';
-            document.documentElement.classList.toggle('dark', next === 'dark');
-            return next;
-        });
-    }, []);
 
     // Set initial dark class
     useEffect(() => {
@@ -92,26 +70,14 @@ export default function DashboardPage() {
         [nodes, edges]
     );
 
-    // ── Simulation: POST new transactions every 3 seconds ──
+    // ── Poll backend for new transactions (ingested from Bank CBS feed) ──
     useEffect(() => {
         const interval = setInterval(async () => {
             try {
-                let sender = randomAccount();
-                let receiver = randomAccount();
-                while (receiver === sender) receiver = randomAccount();
-
-                const isFraudSender = FRAUD_ACCOUNTS.includes(sender);
-                const amount =
-                    isFraudSender && Math.random() > 0.5
-                        ? Math.floor(Math.random() * 45000) + 8000
-                        : Math.floor(Math.random() * 3000) + 100;
-
-                const result = await submitTransaction({ sender, receiver, amount });
-
-                const newTx = mapApiTransaction(result);
-                setTransactions(prev => [newTx, ...prev].slice(0, MAX_TRANSACTIONS));
+                const txRes = await fetchTransactions(MAX_TRANSACTIONS);
+                setTransactions(txRes.transactions.map(mapApiTransaction));
             } catch (e) {
-                console.error('[Quantora] Failed to submit transaction:', e);
+                console.error('[Quantora] Failed to fetch transactions:', e);
             }
         }, 3000);
 
@@ -143,39 +109,43 @@ export default function DashboardPage() {
     );
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg)]">
-            {/* Top nav */}
-            <Navbar theme={theme} onToggleTheme={toggleTheme} />
+        <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
+            <Sidebar />
 
-            {/* 3-column dashboard */}
-            <main className="flex flex-1 overflow-hidden">
-                {/* Left: Transaction Feed — 25% */}
-                <section className="w-1/4 border-r border-[var(--border)] flex flex-col overflow-hidden">
-                    <TransactionFeed transactions={transactions} />
-                </section>
+            <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Pipeline status bar — Bank CBS → SAGRA → Dashboard */}
+                <PipelineStatusBar />
 
-                {/* Center: Network Graph — 50% */}
-                <section className="w-1/2 flex flex-col overflow-hidden">
-                    <GraphView
-                        nodes={nodes}
-                        edges={edges}
-                        selectedNodeId={selectedNodeId}
-                        onNodeSelect={handleNodeSelect}
-                    />
-                </section>
+                {/* 3-column dashboard */}
+                <main className="flex flex-1 overflow-hidden">
+                    {/* Left: Transaction Feed — 25% */}
+                    <section className="w-1/4 border-r border-[var(--border)] flex flex-col overflow-hidden">
+                        <TransactionFeed transactions={transactions} />
+                    </section>
 
-                {/* Right: Risk Panel — 25% */}
-                <section className="w-1/4 border-l border-[var(--border)] flex flex-col overflow-hidden">
-                    <RiskPanel selectedNode={selectedNode} riskScore={riskScore} />
-                </section>
-            </main>
+                    {/* Center: Network Graph — 50% */}
+                    <section className="w-1/2 flex flex-col overflow-hidden">
+                        <GraphView
+                            nodes={nodes}
+                            edges={edges}
+                            selectedNodeId={selectedNodeId}
+                            onNodeSelect={handleNodeSelect}
+                        />
+                    </section>
 
-            {/* Footer metrics strip */}
-            <MetricsFooter
-                totalTransactions={transactions.length + 94832}
-                activeAlerts={activeAlerts}
-                suspiciousClusters={1}
-            />
+                    {/* Right: Risk Panel — 25% */}
+                    <section className="w-1/4 border-l border-[var(--border)] flex flex-col overflow-hidden">
+                        <RiskPanel selectedNode={selectedNode} riskScore={riskScore} />
+                    </section>
+                </main>
+
+                {/* Footer metrics strip */}
+                <MetricsFooter
+                    totalTransactions={transactions.length + 94832}
+                    activeAlerts={activeAlerts}
+                    suspiciousClusters={1}
+                />
+            </div>
         </div>
     );
 }

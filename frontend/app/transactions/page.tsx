@@ -39,7 +39,7 @@ function formatTime(d: Date): string {
 }
 
 function formatAmount(n: number): string {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(n);
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n);
 }
 
 export default function TransactionsPage() {

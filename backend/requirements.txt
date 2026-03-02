@@ -9,3 +9,6 @@ networkx>=3.2
 
 # Data validation (included with FastAPI but pinned for clarity)
 pydantic>=2.5.0
+
+# File upload support
+python-multipart>=0.0.6

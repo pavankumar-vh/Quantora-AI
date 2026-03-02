@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import PipelineStatusBar from '@/components/PipelineStatusBar';
 import KpiCard from '@/components/dashboard/KpiCard';
 import TrendChart from '@/components/dashboard/TrendChart';
 import RiskDistribution from '@/components/dashboard/RiskDistribution';
@@ -88,6 +89,9 @@ export default function DashboardPage() {
         <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
             <Sidebar />
             <div className="flex-1 flex flex-col overflow-hidden">
+
+                {/* Pipeline status bar — Bank CBS → SAGRA → Dashboard */}
+                <PipelineStatusBar />
 
                 {/* System Status Bar */}
                 <header className="h-14 flex-shrink-0 border-b border-[var(--border)] px-6 flex items-center justify-between">

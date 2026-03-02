@@ -170,6 +170,34 @@ export async function fetchGraphData(): Promise<GraphData> {
     return await res.json();
 }
 
+export interface NodeDetail {
+    id: string;
+    risk_score: number;
+    risk_level: 'high' | 'medium' | 'low';
+    is_fraud_account: boolean;
+    group: string;
+    degree: { in: number; out: number; total: number };
+    flow: {
+        total_sent: number;
+        total_received: number;
+        net_flow: number;
+        transaction_count: number;
+        fraud_count: number;
+    };
+    sagra: { avg_trs: number; avg_grs: number; avg_ndb: number };
+    neighbors: { id: string; risk_score: number; risk_level: string }[];
+    recent_transactions: StoredTransaction[];
+}
+
+/**
+ * Fetch detailed analytics for a single graph node.
+ */
+export async function fetchNodeDetail(nodeId: string): Promise<NodeDetail> {
+    const res = await fetch(`${API_BASE}/graph/node/${nodeId}`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
+}
+
 /**
  * Fetch fraud alerts derived from high-risk transactions.
  */
@@ -206,6 +234,106 @@ export function mapApiTransaction(t: StoredTransaction): Transaction {
         risk: t.risk_level as RiskLevel,
         isFraud: t.is_fraud,
     };
+}
+
+
+// ─────────────────────────────────────────────────────
+// Bank CBS Integration Types & Endpoints
+// ─────────────────────────────────────────────────────
+
+export interface BankConnectionStatus {
+    connected: boolean;
+    bank_name: string;
+    api_version: string;
+    protocol: string;
+    feed_type: string;
+    last_poll: string | null;
+    total_ingested: number;
+    uptime_seconds: number;
+    latency_ms: number;
+    error_count: number;
+    transactions_processed_by_sagra: number;
+    ingestion_active: boolean;
+}
+
+export interface PipelineStage {
+    stage: string;
+    status: string;
+    detail: string;
+    protocol?: string;
+    latency_ms?: number;
+    total_ingested?: number;
+    fraud_detected?: number;
+    avg_risk?: number;
+    clusters?: number;
+    active_alerts?: number;
+}
+
+export interface PipelineStatus {
+    pipeline: PipelineStage[];
+    overall_status: string;
+    uptime_seconds: number;
+}
+
+export interface BankFeedTransaction {
+    message_id: string;
+    instruction_id: string;
+    end_to_end_id: string;
+    creation_datetime: string;
+    channel: string;
+    debtor_account_id: string;
+    debtor_iban: string;
+    debtor_bic: string;
+    debtor_name: string;
+    creditor_account_id: string;
+    creditor_iban: string;
+    creditor_bic: string;
+    creditor_name: string;
+    amount: number;
+    currency: string;
+    merchant_category: string;
+    merchant_label: string;
+    originator_country: string;
+    beneficiary_country: string;
+    geo: { city: string; country: string; lat: number; lon: number };
+    remittance_info: string;
+    batch_id: string;
+    bank_risk_flag: boolean;
+    sagra_processed: boolean;
+}
+
+export interface BankFeedResponse {
+    feed: BankFeedTransaction[];
+    total_in_buffer: number;
+    bank_name: string;
+    feed_type: string;
+}
+
+/**
+ * Fetch the bank CBS API connection status.
+ */
+export async function fetchBankStatus(): Promise<BankConnectionStatus> {
+    const res = await fetch(`${API_BASE}/bank/status`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
+}
+
+/**
+ * Fetch raw ISO 20022 transactions from the bank feed (pre-SAGRA).
+ */
+export async function fetchBankFeed(limit = 50): Promise<BankFeedResponse> {
+    const res = await fetch(`${API_BASE}/bank/feed?limit=${limit}`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
+}
+
+/**
+ * Fetch full pipeline status (Bank CBS → SAGRA → Dashboard).
+ */
+export async function fetchPipelineStatus(): Promise<PipelineStatus> {
+    const res = await fetch(`${API_BASE}/pipeline/status`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
 }
 
 
@@ -252,4 +380,140 @@ export async function fetchGraphStats() {
     } catch {
         return null;
     }
+}
+
+
+// ─────────────────────────────────────────────────────
+// Bank Input Types & Endpoints
+// ─────────────────────────────────────────────────────
+
+export interface FileUploadResponse {
+    status: string;
+    filename: string;
+    rows_processed: number;
+    fraud_detected: number;
+    avg_risk: number;
+    transactions: StoredTransaction[];
+}
+
+export interface UploadRecord {
+    id: string;
+    filename: string;
+    rows_processed: number;
+    fraud_detected: number;
+    avg_risk: number;
+    timestamp: string;
+}
+
+export interface ManualTransactionRequest {
+    sender: string;
+    receiver: string;
+    amount: number;
+    iban?: string;
+    bic?: string;
+    description?: string;
+}
+
+export interface BankApiConnection {
+    id: string;
+    bank_name: string;
+    api_key: string;
+    endpoint_url: string;
+    status: string;
+    created_at: string;
+    last_sync: string;
+    transactions_synced: number;
+}
+
+export interface BankApiConnectionRequest {
+    bank_name: string;
+    api_key: string;
+    endpoint_url: string;
+}
+
+export interface SyncResult {
+    status: string;
+    connection_id: string;
+    bank_name: string;
+    transactions_synced: number;
+    transactions: StoredTransaction[];
+}
+
+/**
+ * Upload a CSV bank statement file for batch SAGRA processing.
+ */
+export async function uploadBankFile(file: File): Promise<FileUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/bank/input/upload`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!res.ok) throw new Error(`Upload error: ${res.status}`);
+    return await res.json();
+}
+
+/**
+ * Fetch history of file uploads.
+ */
+export async function fetchUploadHistory(): Promise<{ uploads: UploadRecord[] }> {
+    const res = await fetch(`${API_BASE}/bank/input/uploads`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
+}
+
+/**
+ * Submit a single manual transaction for SAGRA scoring.
+ */
+export async function submitManualTransaction(data: ManualTransactionRequest): Promise<StoredTransaction> {
+    const res = await fetch(`${API_BASE}/bank/input/manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
+}
+
+/**
+ * Register a new external bank API connection.
+ */
+export async function addBankConnection(data: BankApiConnectionRequest): Promise<BankApiConnection> {
+    const res = await fetch(`${API_BASE}/bank/input/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
+}
+
+/**
+ * List all registered external bank API connections.
+ */
+export async function listBankConnections(): Promise<{ connections: BankApiConnection[] }> {
+    const res = await fetch(`${API_BASE}/bank/input/connections`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
+}
+
+/**
+ * Remove a bank API connection by ID.
+ */
+export async function removeBankConnection(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/bank/input/connections/${id}`, {
+        method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+}
+
+/**
+ * Trigger a manual sync from a registered bank connection.
+ */
+export async function syncBankConnection(id: string): Promise<SyncResult> {
+    const res = await fetch(`${API_BASE}/bank/input/connections/${id}/sync`, {
+        method: 'POST',
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.json();
 }

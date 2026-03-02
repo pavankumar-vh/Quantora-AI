@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Network, Bell, Settings, BarChart3, GitBranch, List, Brain } from 'lucide-react';
+import { LayoutDashboard, Network, Bell, Settings, BarChart3, GitBranch, List, Brain, Plug, Landmark } from 'lucide-react';
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -11,6 +11,8 @@ const NAV_ITEMS = [
     { label: 'Network Graph', href: '/network', icon: GitBranch },
     { label: 'Transactions', href: '/transactions', icon: List },
     { label: 'Algorithm', href: '/algorithm', icon: Brain },
+    { label: 'API Integration', href: '/api-integration', icon: Plug },
+    { label: 'Bank Input', href: '/bank-input', icon: Landmark },
     { label: 'Alerts', href: '/alerts', icon: Bell },
     { label: 'Settings', href: '/settings', icon: Settings },
 ];
