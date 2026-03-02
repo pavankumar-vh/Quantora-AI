@@ -13,20 +13,38 @@ class Base(DeclarativeBase):
     pass
 
 
+import ssl as _ssl
+
 _settings = get_settings()
 
 # Auto-fix PostgreSQL URL for asyncpg driver
 _db_url = _settings.database_url
-if _db_url.startswith("postgresql://"):
+_is_pg = False
+if _db_url.startswith("postgresql+asyncpg://"):
+    _is_pg = True
+elif _db_url.startswith("postgresql://"):
     _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    _is_pg = True
 elif _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    _is_pg = True
 
-engine = create_async_engine(
-    _db_url,
-    echo=_settings.debug,
-    connect_args={"check_same_thread": False} if "sqlite" in _db_url else {},
-)
+if _is_pg:
+    # Supabase/cloud PostgreSQL requires SSL + no prepared statements for pooler
+    _ssl_ctx = _ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = _ssl.CERT_NONE
+    engine = create_async_engine(
+        _db_url,
+        echo=_settings.debug,
+        connect_args={"ssl": _ssl_ctx, "prepared_statement_cache_size": 0},
+    )
+else:
+    engine = create_async_engine(
+        _db_url,
+        echo=_settings.debug,
+        connect_args={"check_same_thread": False} if "sqlite" in _db_url else {},
+    )
 
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
