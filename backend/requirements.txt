@@ -1,0 +1,11 @@
+# Quantora AI — Backend Dependencies
+# ====================================
+# Core API framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Graph computation
+networkx>=3.2
+
+# Data validation (included with FastAPI but pinned for clarity)
+pydantic>=2.5.0

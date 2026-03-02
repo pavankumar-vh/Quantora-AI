@@ -19,6 +19,7 @@ import {
 } from '@/lib/mockData';
 
 import { calculateRisk, getDefaultRiskScore, type RiskScore } from '@/lib/riskEngine';
+import { predictFraud } from '@/lib/api';
 
 const MAX_TRANSACTIONS = 50;
 
@@ -66,10 +67,28 @@ export default function DashboardPage() {
     );
 
     // 3-second interval: add transaction + edge + update risk panel
+    // Also sends each transaction to the SAGRA backend for real-time scoring
     useEffect(() => {
         const interval = setInterval(() => {
             const newTx = generateNewTransaction();
             const newEdge = generateNewEdge(newTx);
+
+            // Send transaction to SAGRA backend (non-blocking)
+            // The backend builds its own transaction graph and returns
+            // risk_score + fraud_prediction from the SAGRA algorithm.
+            predictFraud({
+                sender: parseInt(newTx.senderId.replace(/\D/g, '')) || 0,
+                receiver: parseInt(newTx.receiverId.replace(/\D/g, '')) || 0,
+                amount: newTx.amount,
+            }).then(result => {
+                // Enrich transaction with SAGRA backend risk score
+                const sagraRisk = result.risk_score;
+                const riskLabel = sagraRisk > 0.7 ? 'high' : sagraRisk > 0.4 ? 'medium' : 'low';
+                newTx.risk = riskLabel;
+                newTx.isFraud = result.fraud_prediction === 1;
+            }).catch(() => {
+                // Fallback: keep the locally generated risk level
+            });
 
             setTransactions(prev => [newTx, ...prev].slice(0, MAX_TRANSACTIONS));
 
