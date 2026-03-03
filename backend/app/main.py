@@ -160,7 +160,7 @@ async def _create_default_accounts():
 
 
 async def _run_seed():
-    """Seed realistic transaction data — ~5-8% fraud rate."""
+    """Seed realistic transaction data — ~1% fraud rate, 200+ accounts, 7 days."""
     import random
     from app.database import async_session
     from app.services.sagra import process_transaction
@@ -169,46 +169,63 @@ async def _run_seed():
     random.seed(42)
     now = datetime.utcnow()
 
-    # 30 normal accounts, 3 fraud accounts
-    NORMAL = [f"ACC-{str(i).zfill(3)}" for i in range(1, 31)]
-    FRAUD = ["FRD-001", "FRD-002", "FRD-003"]
+    # 200 normal accounts, 5 fraud accounts
+    NORMAL = [f"ACC-{str(i).zfill(4)}" for i in range(1, 201)]
+    FRAUD = [f"FRD-{str(i).zfill(3)}" for i in range(1, 6)]
     ALL = NORMAL + FRAUD
 
     async with async_session() as db:
-        # ── Normal transactions (bulk, low amount, low risk) ──
-        for hour in range(48):  # 2 days of data
-            base_time = now - timedelta(hours=48 - hour)
-            count = random.randint(8, 20) if 8 <= (hour % 24) <= 20 else random.randint(2, 6)
+        # ── Normal transactions: 7 days, ~2000+ transactions ──
+        for hour in range(168):  # 7 days × 24 hours
+            base_time = now - timedelta(hours=168 - hour)
+            hour_of_day = hour % 24
+            # Business hours: more transactions
+            if 9 <= hour_of_day <= 18:
+                count = random.randint(10, 25)
+            elif 6 <= hour_of_day <= 22:
+                count = random.randint(4, 10)
+            else:
+                count = random.randint(0, 3)
 
             for _ in range(count):
                 ts = base_time + timedelta(minutes=random.randint(0, 59), seconds=random.randint(0, 59))
                 sender = random.choice(NORMAL)
-                receiver = random.choice(ALL)
+                receiver = random.choice(NORMAL)
                 while receiver == sender:
-                    receiver = random.choice(ALL)
-                amount = round(random.uniform(200, 8000), 2)
+                    receiver = random.choice(NORMAL)
+                # Realistic amounts — mostly small everyday transfers
+                r = random.random()
+                if r < 0.5:
+                    amount = round(random.uniform(50, 2000), 2)       # small transfers
+                elif r < 0.8:
+                    amount = round(random.uniform(2000, 8000), 2)     # medium
+                elif r < 0.95:
+                    amount = round(random.uniform(8000, 20000), 2)    # large but legit
+                else:
+                    amount = round(random.uniform(20000, 45000), 2)   # high value (rare)
                 await process_transaction(sender, receiver, amount, db, timestamp=ts, source="seed")
 
-        # ── Suspicious transactions (~5% of total, high amounts) ──
-        for _ in range(25):
-            ts = now - timedelta(hours=random.randint(1, 36), minutes=random.randint(0, 59))
+        # ── Fraud: only ~15 suspicious transactions (~0.7% of total) ──
+        for _ in range(15):
+            ts = now - timedelta(days=random.randint(0, 5), hours=random.randint(0, 23), minutes=random.randint(0, 59))
             sender = random.choice(FRAUD)
             receiver = random.choice(NORMAL)
-            amount = round(random.uniform(30000, 80000), 2)
+            amount = round(random.uniform(40000, 90000), 2)
             await process_transaction(sender, receiver, amount, db, timestamp=ts, source="seed")
 
-        # ── One clear fraud ring (coordinated circular transfers) ──
+        # ── One fraud ring: coordinated circular laundering ──
         ring = [
-            ("FRD-001", "FRD-002", 55000),
-            ("FRD-002", "FRD-003", 48000),
-            ("FRD-003", "FRD-001", 42000),
-            ("FRD-001", "ACC-015", 35000),
+            ("FRD-001", "FRD-002", 65000),
+            ("FRD-002", "FRD-003", 52000),
+            ("FRD-003", "FRD-001", 48000),
+            ("FRD-001", "ACC-0099", 38000),
+            ("FRD-004", "FRD-005", 71000),
         ]
         for i, (s, r, a) in enumerate(ring):
-            await process_transaction(s, r, a, db, timestamp=now - timedelta(minutes=(len(ring) - i) * 3), source="seed")
+            await process_transaction(s, r, a, db, timestamp=now - timedelta(hours=random.randint(1, 12), minutes=i * 7), source="seed")
 
     random.seed()
-    logger.info("Seed data loaded (realistic fraud rate ~5-8%%)")
+    logger.info("Seed data loaded — 200 accounts, ~2000+ txns, ~1%% fraud rate")
 
 
 async def _run_simulation():
